@@ -1,7 +1,7 @@
-/**
- * Copyright (C) 2019 Gert Vaartjes 
- * 
- * DEMO for showing how to synchronize selected points in the chart with table cells and vice versa
+'use strict';
+/*global Highcharts*/
+
+/* DEMO for showing how to synchronize selected points in the chart with table cells and vice versa
  *
  * TODO: toggle hiding series through the legend, recreates the table. Then the variables holding the elements are lost. 
  * Should refine the the demo a bit, and define the variables on the fly. Legend click is now disables
@@ -15,29 +15,82 @@ const getCell = (trIdx, idx) => {
 // turn html collection into array
 const htmlCollectionToArray = (nodes) => Array.prototype.slice.call(nodes);
 
-// get the array of headers
-const getHHeaders = () => htmlCollectionToArray(document.querySelectorAll("#highcharts-data-table-0 thead th")).map(x => x.innerHTML);
-const getVHeaders = () => htmlCollectionToArray(document.querySelectorAll("#highcharts-data-table-0 tbody th")).map(x => x.innerHTML);
+// attach eventlistener to array of HTML elements
+const attachEventListenerToElements = (elementsArr, eventName, listener) => {
+    elementsArr.forEach(elem => elem.addEventListener(eventName, listener))
+}
 
-const getSelectedCell = () => Array.prototype.slice.call(document.querySelectorAll('#highcharts-data-table-0 tbody .selected'));
+// get the array of headers
+const getHHeaders = () => htmlCollectionToArray(
+  document.querySelectorAll("#highcharts-data-table-0 thead th")).map(x => x.innerHTML);
+const getVHeaders = () => htmlCollectionToArray(
+  document.querySelectorAll("#highcharts-data-table-0 tbody th")).map(x => x.innerHTML);
+
+const getTableCellsForColumn = (elem) => {
+    // Get the cells in the row except for the first cell containing category label
+    let cellsInRow = htmlCollectionToArray(document.querySelectorAll('#highcharts-data-table-0 tr')).slice(1);     
+    // build array with cells for index in every row
+    return cellsInRow.reduce((acc,curr)=> {
+      let c = curr.children.item(elem.cellIndex);
+      acc.push(c);
+      return acc;
+    }, []);
+  }
 
 let vHeaders, hHeaders;
 
-// function for selecting the table cell corresponding the selected datapoint in the chart
-const selectCell = function () {
-  // deselect previous cell, if exist
-  getSelectedCell().map(x => x.classList.remove('selected'));
+/**
+* function for selecting the table cells corresponding the selected datapoints in the chart
+*/
+const selectTableCell = function (point) {
   
   vHeaders = vHeaders ? vHeaders : getVHeaders();
   hHeaders = hHeaders ? hHeaders : getHHeaders();
 
-  let selected = getCell(vHeaders.indexOf(this.category),hHeaders.indexOf(this.series.name));
-  selected.classList.add('selected');               
+  let selected = getCell(vHeaders.indexOf(point.category),hHeaders.indexOf(point.series.name));
+  // remove or add the classname on the element to select/deselect the tablecell
+  DOMTokenList.prototype[point.selected? 'remove' : 'add'].apply(selected.classList, ['selected']);
+};
+
+const updateSelectionOfSeriesPoint = (chart, tableCellArr) => {
+    tableCellArr.forEach((cell) => {
+      let cellIdx = cell.cellIndex;
+      let point = chart.series[cellIdx -1].points[cell.parentNode.rowIndex -1];
+      // contains classList selected, then deselect point and v.v.
+      point.select(!cell.classList.contains('selected'),true);
+    })
+    
 }
 
-const selectSeriesPoint = (rowIdx, colIdx) => {
-  
-};
+/**
+ * selected area in chart is used to filter which series points fall within the selected area
+ * Normally used to zoom in, but we return false to prevent that happening
+ */
+function selectPointsByDrag(e) {
+    // Select points
+    Highcharts.each(this.series, function (series) {
+        Highcharts.each(series.points, function (point) {
+            if (point.x >= e.xAxis[0].min && point.x <= e.xAxis[0].max &&
+                    point.y >= e.yAxis[0].min && point.y <= e.yAxis[0].max) {
+                point.select(true,true);
+            }
+        });
+    });
+    
+    return false; // Don't zoom
+}
+
+/**
+ * On click, unselect all points
+ */
+function unselectByClick() {
+    var points = this.getSelectedPoints();
+    if (points.length > 0) {
+        Highcharts.each(points, function (point) {
+            point.select(false, true);
+        });
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   
@@ -60,7 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
       borderWidth: 1,
       borderColor: "#ccc",
       spacingBottom: 30,
-      type: 'column'
+      type: 'line',
+      events: {
+            selection: selectPointsByDrag,
+            click: unselectByClick
+        },
+      // necesssary to be able to select by dragging
+      zoomType: 'xy'
     },
 
     yAxis: {
@@ -83,13 +142,20 @@ document.addEventListener('DOMContentLoaded', () => {
         pointPadding:0,
         point: {
           events: {
-            select: selectCell
+            select: function(e) {
+              selectTableCell(this);
+            },
+            unselect: function(e) {
+              selectTableCell(this);
+            }
           }
         },
-        states: {
-          select: {
-            color: 'tomato',
-            borderColor: 'black'
+        marker: {
+          states: {
+            select: {
+              fillColor: 'tomato',
+              borderColor: 'green'
+            }
           }
         },
         events: {
@@ -105,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         name: "Manufacturing",
-        data: [24916, 24064, 29742, 29851, 32490, 30282, 38121, 40434]
+        data: [24916, 24064, 150000, 175000, 132490, 30282, 38121, 40434]
       },
       {
         name: "Distribution",
@@ -118,16 +184,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Event listener and attach function to highlight corresponding datapoint in the chart when slecting a table cell
-  document.querySelector("#highcharts-data-table-0 tbody").addEventListener("click", 
-   function(e) { 
-    let cellIdx = e.target.cellIndex
-    
-    // prevent selecting category column 
-    if (cellIdx < 1) { e.preventDefault(); return false;}
-    
-    let point = chart.series[cellIdx -1].points[e.target.parentNode.rowIndex -1];
-    point.select(true);
-  });
-
+  // Attach eventListeners for the table cells holding the point values
+  attachEventListenerToElements(htmlCollectionToArray(
+    document.querySelectorAll('#highcharts-data-table-0 td.number')), 'click',function (e) { 
+     updateSelectionOfSeriesPoint(chart, [e.target]); 
+  })
+  
+  // Attach eventListeners for the category table cells
+  attachEventListenerToElements(htmlCollectionToArray(
+    document.querySelectorAll('#highcharts-data-table-0 th.text[scope=row]')), 'click',function (e) { 
+    // create array of related cells for clicked category in the table and toggle selection 
+    // for these. Shift removes the first table cell in the table row.
+    updateSelectionOfSeriesPoint(chart, htmlCollectionToArray(e.target.parentElement.children).slice(1));
+  }) 
+  
+  // Attach eventListeners for the cells selected by column click
+  attachEventListenerToElements(htmlCollectionToArray(
+    document.querySelector('#highcharts-data-table-0 tr').children).slice(1), 'click', function (e) { 
+    let colCells = getTableCellsForColumn(e.target);
+    updateSelectionOfSeriesPoint(chart, colCells);
+  })
 });
