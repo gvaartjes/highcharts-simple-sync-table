@@ -1,10 +1,11 @@
 'use strict';
 /*global Highcharts*/
 
-/* DEMO for showing how to synchronize selected points in the chart with table cells and vice versa
+/* DEMO for showing how to synchronize selected points in the chart by highlighting
+ * the table cells and vice versa.
  *
  * TODO: toggle hiding series through the legend, recreates the table. Then the variables holding the elements are lost. 
- * Should refine the the demo a bit, and define the variables on the fly. Legend click is now disables
+ * Legend click is now disables
  */
 
 const getCell = (trIdx, idx) => {
@@ -17,7 +18,7 @@ const htmlCollectionToArray = (nodes) => Array.prototype.slice.call(nodes);
 
 // attach eventlistener to array of HTML elements
 const attachEventListenerToElements = (elementsArr, eventName, listener) => {
-    elementsArr.forEach(elem => elem.addEventListener(eventName, listener))
+  elementsArr.forEach(elem => elem.addEventListener(eventName, listener))
 }
 
 // get the array of headers
