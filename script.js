@@ -38,17 +38,15 @@ const getTableCellsForColumn = (elem) => {
     }, []);
   }
 
-let vHeaders, hHeaders;
-
 /**
 * function for selecting the table cells corresponding the selected datapoints in the chart
 */
 const selectTableCell = function (point) {
-  
-  vHeaders = vHeaders ? vHeaders : getVHeaders();
-  hHeaders = hHeaders ? hHeaders : getHHeaders();
+  let vHeaders = vHeaders ? vHeaders : getVHeaders();
+  let hHeaders = hHeaders ? hHeaders : getHHeaders();
+  let selected = getCell(vHeaders.indexOf(point.category),
+    hHeaders.indexOf(point.series.name));
 
-  let selected = getCell(vHeaders.indexOf(point.category),hHeaders.indexOf(point.series.name));
   // remove or add the classname on the element to select/deselect the tablecell
   DOMTokenList.prototype[point.selected? 'remove' : 'add'].apply(selected.classList, ['selected']);
 };
