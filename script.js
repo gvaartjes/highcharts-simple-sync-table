@@ -9,26 +9,43 @@
    * Legend click is now disables
    */
 
+  /**
+   *  Utility to convert HTMLCollection into array
+   * @param {HTMLCollection} nodes 
+   * @returns {Array}
+   */
+  const htmlCollectionToArray = (nodes) => Array.prototype.slice.call(nodes);
+
+  /**
+   * Function for getting the cell corresponding the point selected in teh chart
+   * @param {int} trIdx : Index for the array of table rows
+   * @param {int} idx : Index of the Tabel cell we're interested in
+   * @returns {HTMLTableCellElement}
+   */
   const getCell = (trIdx, idx) => {
     let rows = document.querySelectorAll("#highcharts-data-table-0 tbody tr");
+    
     return rows[trIdx].cells[idx]
   }
-
-  // turn html collection into array
-  const htmlCollectionToArray = (nodes) => Array.prototype.slice.call(nodes);
 
   // attach eventlistener to array of HTML elements
   const attachEventListenerToElements = (elementsArr, eventName, listener) => {
     elementsArr.forEach(elem => elem.addEventListener(eventName, listener))
   }
 
-  // get the array of headers
+  // get the array of headers in the HTML table
   const getHHeaders = () => htmlCollectionToArray(
     document.querySelectorAll("#highcharts-data-table-0 thead th")).map(x => x.innerHTML);
   const getVHeaders = () => htmlCollectionToArray(
     document.querySelectorAll("#highcharts-data-table-0 tbody th")).map(x => x.innerHTML);
   let vHeaders, hHeaders;
 
+  /**
+   * Pass in a table cell element from the header of the table and retrieve all cell for this columns.
+   * Loop over all rows and retrieve for every row the cell for the selected column by index. Modify the array with reduce
+   * @param {HTMLTableCellElement} elem
+   * @returns {Array<HTMLTableCellElement>}
+   */
   const getTableCellsForColumn = (elem) => {
     // Get the cells in the row except for the first cell containing category label
     let cellsInRow = htmlCollectionToArray(document.querySelectorAll('#highcharts-data-table-0 tr')).slice(1);
@@ -41,29 +58,27 @@
   }
 
   /**
-  * 
-  */
-  /**
-   * function for selecting the table cells corresponding the selected datapoints 
+   * Function for hilighting a table cell corresponding a selected datapoint
    * in the chart 
-   * @param {Point} point, Highcharts point 
-   * @param {Boolean} select, Is the point selected 
+   * @param {Point} point, Highcharts.Point 
+   * @param {Boolean} selected, Is the point selected or deselected?
    */
-  const selectTableCell = function (point, select) {
+  const selectTableCell = function (point, highlight) {
     // check the global properties, initially not set
     vHeaders = vHeaders ? vHeaders : getVHeaders();
     hHeaders = hHeaders ? hHeaders : getHHeaders();
 
+    // find corresponding cell for datapoint
     let cell = getCell(vHeaders.indexOf(point.category),
       hHeaders.indexOf(point.series.name));
 
     // remove or add the classname on the element to select/deselect the tablecell
-    DOMTokenList.prototype[select ? 'add' : 'remove']
+    DOMTokenList.prototype[highlight ? 'add' : 'remove']
       .apply(cell.classList, ['selected']);
   };
 
   /**
-   * 
+   * Update the data point in the series on selecting or deselecting a table cell
    * @param {Chart} chart 
    * @param {Array} tableCellArr 
    */
