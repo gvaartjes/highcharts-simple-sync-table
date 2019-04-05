@@ -131,7 +131,7 @@
       },
 
       subtitle: {
-        text: "A demo of displaying a data table in Highcharts"
+        text: "Hold Shift or CMD, or drag to multi-slect points"
       },
 
       credits: {
